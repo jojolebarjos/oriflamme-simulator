@@ -10,6 +10,7 @@
 typedef enum {
     PHASE_PLACE,
     PHASE_REVEAL,
+    // TODO maybe only PHASE_ACT?
     PHASE_ACT_ARCHER,
     PHASE_ACT_SOLDIER,
     PHASE_ACT_SPY,
@@ -28,8 +29,8 @@ typedef struct {
     int phase;
     PyObject* board;
     PyObject* decks;
-    int index;
-    int family;
+    int current_index;
+    int current_family;
     PyObject* actions;
 } StateObject;
 

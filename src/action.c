@@ -1,17 +1,39 @@
 
 #include "action.h"
 
+ActionObject* Action_New(int effect, StateObject* current_state) {
+    ActionObject* action = PyObject_New(ActionObject, &Action_Type);
+    if (!action) {
+        return NULL;
+    }
+    action->effect = effect;
+    action->current_state = current_state;
+    action->next_state = NULL;
+    Py_INCREF(current_state);
+    return action;
+}
+
 static void Action_dealloc(ActionObject* self) {
     Py_XDECREF(self->current_state);
     Py_XDECREF(self->next_state);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+static PyObject* Action_CreateState(ActionObject* self) {
+    switch (self->phase) {
+    // TODO
+    default:
+        PyErr_SetString(PyExc_NotImplementedError, "action not implemented");
+        return NULL;
+    }
+}
+
 static PyObject* Action_get_next_state(ActionObject* self, void* closure) {
     if (!self->next_state) {
-        // TODO
-        self->next_state = (StateObject*)Py_None;
-        Py_INCREF(Py_None);
+        self->next_state = Action_CreateState(self);
+        if (!self->next_state) {
+            return NULL;
+        }
     }
     Py_INCREF(self->next_state);
     return (PyObject*)self->next_state;
