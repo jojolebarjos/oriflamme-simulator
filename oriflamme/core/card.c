@@ -37,7 +37,7 @@ static PyGetSetDef Card_getset[] = {
 
 PyTypeObject Card_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "oriflamme.Card",
+    .tp_name = PACKAGE_NAME ".Card",
     .tp_basicsize = sizeof(CardObject),
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_new = PyType_GenericNew,

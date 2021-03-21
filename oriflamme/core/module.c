@@ -28,7 +28,7 @@ static int module_exec(PyObject* module) {
     // Register types
     for (PyTypeObject** t = types; *t; ++t) {
         Py_INCREF(*t);
-        if (PyModule_AddObject(module, (*t)->tp_name + sizeof("oriflamme.") - 1, (PyObject*)*t) < 0) {
+        if (PyModule_AddObject(module, (*t)->tp_name + sizeof(PACKAGE_NAME ".") - 1, (PyObject*)*t) < 0) {
             Py_DECREF(*t);
             goto fail;
         }
@@ -48,11 +48,11 @@ static PyModuleDef_Slot slots[] = {
 
 static struct PyModuleDef module = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "oriflamme",
+    .m_name = PACKAGE_NAME,
     .m_methods = methods,
     .m_slots = slots,
 };
 
-PyMODINIT_FUNC PyInit_oriflamme() {
+PyMODINIT_FUNC PyInit_core() {
     return PyModuleDef_Init(&module);
 }

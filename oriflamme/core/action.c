@@ -19,8 +19,8 @@ static void Action_dealloc(ActionObject* self) {
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static PyObject* Action_CreateState(ActionObject* self) {
-    switch (self->phase) {
+static StateObject* Action_CreateState(ActionObject* self) {
+    switch (self->effect) {
     // TODO
     default:
         PyErr_SetString(PyExc_NotImplementedError, "action not implemented");
@@ -51,7 +51,7 @@ static PyGetSetDef Action_getset[] = {
 
 PyTypeObject Action_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "oriflamme.Action",
+    .tp_name = PACKAGE_NAME ".Action",
     .tp_basicsize = sizeof(ActionObject),
     .tp_flags = Py_TPFLAGS_DEFAULT,
     // TODO maybe expose new/init?

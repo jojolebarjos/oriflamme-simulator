@@ -5,9 +5,9 @@ from glob import glob
 
 extensions = [
     Extension(
-        name="oriflamme",
+        name="oriflamme.core",
         sources=[
-            *glob("src/*.c"),
+            *glob("oriflamme/core/*.c"),
         ],
     ),
 ]

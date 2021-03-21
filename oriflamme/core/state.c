@@ -146,7 +146,7 @@ static PyGetSetDef State_getset[] = {
 
 PyTypeObject State_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "oriflamme.State",
+    .tp_name = PACKAGE_NAME ".State",
     .tp_basicsize = sizeof(StateObject),
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_new = PyType_GenericNew,
