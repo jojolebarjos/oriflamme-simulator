@@ -9,6 +9,7 @@
 #include "score.h"
 
 typedef enum {
+    PHASE_NONE,
     PHASE_PLACE,
     PHASE_REVEAL,
     PHASE_ACT,

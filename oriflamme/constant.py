@@ -14,10 +14,11 @@
 ) = range(11)
 
 (
+    PHASE_NONE,
     PHASE_PLACE,
     PHASE_REVEAL,
     PHASE_ACT,
-) = range(3)
+) = range(4)
 
 (
     EFFECT_NONE,

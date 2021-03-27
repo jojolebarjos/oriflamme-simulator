@@ -21,6 +21,61 @@ static void Action_dealloc(ActionObject* self) {
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+static StateObject* Action_CreateState_PostAction(
+    StateObject* current_state,
+    PyObject* new_board,
+    PyObject* new_decks,
+    PyObject* new_scores
+) {
+
+    // Use existing values as default
+    if (!new_board) {
+        new_board = current_state->board;
+        Py_INCREF(new_board);
+    }
+    if (!new_decks) {
+        new_decks = current_state->decks;
+        Py_INCREF(new_decks);
+    }
+    if (!new_scores) {
+        new_scores = current_state->scores;
+        Py_INCREF(new_scores);
+    }
+
+    // If it was the last card in the queue, start a new turn
+    int new_index = current_state->index + 1;
+    if (new_index >= PyTuple_GET_SIZE(new_board)) {
+        return State_New(
+            PHASE_PLACE,
+            new_board,
+            new_decks,
+            new_scores,
+            0
+        );
+    }
+
+    // If next card is not yet revealed, ask for reveal
+    CardObject* next_card = (CardObject*)(PyTuple_GET_ITEM(new_board, new_index));
+    if (next_card->tokens >= 0) {
+        return State_New(
+            PHASE_REVEAL,
+            new_board,
+            new_decks,
+            new_scores,
+            new_index
+        );
+    }
+
+    // Otherwise, ask for action
+    return State_New(
+        PHASE_ACT,
+        new_board,
+        new_decks,
+        new_scores,
+        new_index
+    );
+}
+
 static StateObject* Action_CreateStatePlace(ActionObject* self) {
 
     // Get parameters
@@ -63,6 +118,8 @@ static StateObject* Action_CreateStatePlace(ActionObject* self) {
     StateObject* next_state;
     Py_INCREF(current_state->scores);
     if (family + 1 >= num_families) {
+        CardObject* card = (CardObject*)(PyTuple_GET_ITEM(new_board, 0));
+        int phase = card->tokens >= 0 ? PHASE_REVEAL : PHASE_ACT;
         next_state = State_New(
             PHASE_REVEAL,
             new_board,
@@ -130,6 +187,7 @@ static StateObject* Action_CreateStateReveal(ActionObject* self) {
     }
 
     // Create new state
+    Py_INCREF(current_state->decks);
     StateObject* next_state = State_New(
         PHASE_ACT,
         new_board,
@@ -140,12 +198,49 @@ static StateObject* Action_CreateStateReveal(ActionObject* self) {
     return next_state;
 }
 
+static StateObject* Action_CreateStateIncrease(ActionObject* self) {
+
+    // Get parameters
+    StateObject* current_state = self->current_state;
+    CardObject* current_card = State_CURRENT_CARD(current_state);
+
+    // Create new card
+    CardObject* new_card = Card_New(
+        current_card->kind,
+        current_card->family,
+        current_card->tokens + 1
+    );
+    if (!new_card) {
+        return NULL;
+    }
+
+    // Create new board
+    PyObject* new_board = Board_SetCard(
+        current_state->board,
+        current_state->index,
+        (PyObject*)new_card
+    );
+    if (!new_board) {
+        return NULL;
+    }
+
+    // Create new state
+    return Action_CreateState_PostAction(
+        current_state,
+        new_board,
+        NULL,
+        NULL
+    );
+}
+
 static StateObject* Action_CreateState(ActionObject* self) {
     switch (self->effect) {
     case EFFECT_PLACE:
         return Action_CreateStatePlace(self);
     case EFFECT_REVEAL:
         return Action_CreateStateReveal(self);
+    case EFFECT_INCREASE:
+        return Action_CreateStateIncrease(self);
     // TODO
     default:
         PyErr_SetString(PyExc_NotImplementedError, "action not implemented");
@@ -189,6 +284,18 @@ static PyObject* Action_repr(ActionObject* self) {
             "Action(PLACE, %s, index=%d)",
             Kind_NAMES[self->first],
             self->second
+        );
+    case EFFECT_REVEAL:
+        return PyUnicode_FromFormat(
+            "Action(REVEAL, %R@%d)",
+            State_CURRENT_CARD(self->current_state),
+            self->current_state->index
+        );
+    case EFFECT_INCREASE:
+        return PyUnicode_FromFormat(
+            "Action(INCREASE, %R@%d)",
+            State_CURRENT_CARD(self->current_state),
+            self->current_state->index
         );
     default:
         return PyUnicode_FromFormat(

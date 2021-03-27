@@ -10,7 +10,14 @@ typedef enum {
     EFFECT_PLACE,
     EFFECT_REVEAL,
     EFFECT_INCREASE,
-    EFFECT_KILL,
+    //EFFECT_ACT,
+    /*
+        KILL(index, do_suicide)
+        SWAP(first, second, do_suicide)
+        STEAL(family, do_suicide)
+        EARN(tokens, do_suicide)
+        MORPH(kind)
+    */
     // ...
     EFFECT_MAX,
 } Act;
@@ -24,6 +31,10 @@ typedef struct {
     StateObject* next_state;
 } ActionObject;
 
+/**
+ * Create new action.
+ * Reference on `current_state` is incremented, i.e. not stolen.
+ */
 ActionObject* Action_New(int effect, int first, int second, StateObject* current_state);
 
 extern PyTypeObject Action_Type;

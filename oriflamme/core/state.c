@@ -105,7 +105,7 @@ static void State_dealloc(StateObject* self) {
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static PyObject* State_CreatePlaceActions(StateObject* self) {
+static PyObject* State_CreateActionsPlace(StateObject* self) {
     // TODO check for duplicated kinds (i.e. merge actions), typically fixing tuple with _PyTuple_Resize
 
     // For convenience
@@ -150,17 +150,52 @@ static PyObject* State_CreatePlaceActions(StateObject* self) {
     return actions;
 }
 
-static PyObject* State_CreateRevealActions(StateObject* self) {
-    PyErr_SetString(PyExc_NotImplementedError, "reveal phase not implemented");
+static PyObject* State_CreateActionsReveal(StateObject* self) {
+
+    // Create "reveal" action
+    ActionObject* reveal_action = Action_New(
+        EFFECT_REVEAL,
+        -1, -1,
+        self
+    );
+    if (!reveal_action) {
+        return NULL;
+    }
+
+    // Create "increase" action
+    ActionObject* increase_action = Action_New(
+        EFFECT_INCREASE,
+        -1, -1,
+        self
+    );
+    if (!increase_action) {
+        Py_DECREF(reveal_action);
+        return NULL;
+    }
+
+    // Pack actions
+    PyObject* actions = PyTuple_Pack(2, reveal_action, increase_action);
+    Py_DECREF(reveal_action);
+    Py_DECREF(increase_action);
+    return actions;
+}
+
+static PyObject* State_CreateActionsAct(StateObject* self) {
+    // TODO create acts
+    PyErr_SetString(PyExc_NotImplementedError, "act phase not implemented");
     return NULL;
 }
 
 static PyObject* State_CreateActions(StateObject* self) {
     switch (self->phase) {
+    case PHASE_NONE:
+        return PyTuple_New(0);
     case PHASE_PLACE:
-        return State_CreatePlaceActions(self);
+        return State_CreateActionsPlace(self);
     case PHASE_REVEAL:
-        return State_CreateRevealActions(self);
+        return State_CreateActionsReveal(self);
+    case PHASE_ACT:
+        return State_CreateActionsAct(self);
     default:
         PyErr_SetString(PyExc_NotImplementedError, "phase not implemented");
         return NULL;
@@ -178,6 +213,17 @@ static PyObject* State_get_actions(StateObject* self, void* closure) {
     return self->actions;
 }
 
+static PyObject* State_get_card(StateObject* self, void* closure) {
+    PyObject* card;
+    if (self->phase == PHASE_REVEAL || self->phase == PHASE_ACT) {
+        card = (PyObject*)State_CURRENT_CARD(self);
+    } else {
+        card = Py_None;
+    }
+    Py_INCREF(card);
+    return card;
+}
+
 static PyMemberDef State_members[] = {
     {"phase", T_INT, offsetof(StateObject, phase), READONLY},
     {"board", T_OBJECT, offsetof(StateObject, board), READONLY},
@@ -189,9 +235,8 @@ static PyMemberDef State_members[] = {
 
 static PyGetSetDef State_getset[] = {
     {"actions", (getter)State_get_actions, NULL, NULL, NULL},
-    // TODO current_family
-    // TODO current_card
-    // TODO is_finished
+    {"card", (getter)State_get_card, NULL, NULL, NULL},
+    // TODO is_finished?
     // TODO winning_family?
     {NULL},
 };
@@ -205,15 +250,15 @@ static PyObject* State_repr(StateObject* self) {
         );
     case PHASE_REVEAL:
         return PyUnicode_FromFormat(
-            "State(REVEAL, index=%d, %R)",
-            self->index,
-            State_CURRENT_CARD(self)
+            "State(REVEAL, %R@%d)",
+            State_CURRENT_CARD(self),
+            self->index
         );
     case PHASE_ACT:
         return PyUnicode_FromFormat(
-            "State(ACT, index=%d, %R)",
-            self->index,
-            State_CURRENT_CARD(self)
+            "State(ACT, %R@%d)",
+            State_CURRENT_CARD(self),
+            self->index
         );
     default:
         return PyUnicode_FromFormat(
