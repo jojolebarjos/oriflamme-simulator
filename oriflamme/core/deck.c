@@ -84,7 +84,7 @@ PyObject* Deck_RemoveCard(PyObject* deck, int kind) {
         if (PyLong_AsLong(integer) == kind) {
 
             // Create copy
-            PyObject* new_deck = PyTuple_New(size);
+            PyObject* new_deck = PyTuple_New(size - 1);
             if (!new_deck) {
                 return NULL;
             }

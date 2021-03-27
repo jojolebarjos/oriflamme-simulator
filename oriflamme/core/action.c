@@ -61,6 +61,7 @@ static StateObject* Action_CreateStatePlace(ActionObject* self) {
 
     // Create new state
     StateObject* next_state;
+    Py_INCREF(current_state->scores);
     if (family + 1 >= num_families) {
         next_state = State_New(
             PHASE_REVEAL,
@@ -177,6 +178,25 @@ static PyGetSetDef Action_getset[] = {
     {NULL},
 };
 
+static PyObject* Action_repr(ActionObject* self) {
+    switch (self->effect) {
+    case EFFECT_NONE:
+        return PyUnicode_FromFormat(
+            "Action(NONE)"
+        );
+    case EFFECT_PLACE:
+        return PyUnicode_FromFormat(
+            "Action(PLACE, %s, index=%d)",
+            Kind_NAMES[self->first],
+            self->second
+        );
+    default:
+        return PyUnicode_FromFormat(
+            "Action(UNKNOWN)"
+        );
+    }
+}
+
 PyTypeObject Action_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = PACKAGE_NAME ".Action",
@@ -186,4 +206,5 @@ PyTypeObject Action_Type = {
     .tp_dealloc = (destructor)Action_dealloc,
     .tp_members = Action_members,
     .tp_getset = Action_getset,
+    .tp_repr = (reprfunc)Action_repr,
 };

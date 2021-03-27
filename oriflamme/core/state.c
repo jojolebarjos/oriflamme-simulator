@@ -139,12 +139,12 @@ static PyObject* State_CreatePlaceActions(StateObject* self) {
 
         // Place back
         if (board_size > 0) {
-            ActionObject* action = Action_New(EFFECT_PLACE, kind, (int)card_count, self);
+            ActionObject* action = Action_New(EFFECT_PLACE, kind, (int)board_size, self);
             if (!action) {
                 Py_DECREF(actions);
                 return NULL;
             }
-            PyTuple_SET_ITEM(actions, board_size + i, (PyObject*)action);
+            PyTuple_SET_ITEM(actions, card_count + i, (PyObject*)action);
         }
     }
     return actions;
@@ -196,6 +196,32 @@ static PyGetSetDef State_getset[] = {
     {NULL},
 };
 
+static PyObject* State_repr(StateObject* self) {
+    switch (self->phase) {
+    case PHASE_PLACE:
+        return PyUnicode_FromFormat(
+            "State(PLACE, family=%d)",
+            self->index
+        );
+    case PHASE_REVEAL:
+        return PyUnicode_FromFormat(
+            "State(REVEAL, index=%d, %R)",
+            self->index,
+            State_CURRENT_CARD(self)
+        );
+    case PHASE_ACT:
+        return PyUnicode_FromFormat(
+            "State(ACT, index=%d, %R)",
+            self->index,
+            State_CURRENT_CARD(self)
+        );
+    default:
+        return PyUnicode_FromFormat(
+            "State(UNKNOWN)"
+        );
+    }
+}
+
 PyTypeObject State_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = PACKAGE_NAME ".State",
@@ -206,4 +232,5 @@ PyTypeObject State_Type = {
     .tp_dealloc = (destructor)State_dealloc,
     .tp_members = State_members,
     .tp_getset = State_getset,
+    .tp_repr = (reprfunc)State_repr,
 };

@@ -1,6 +1,20 @@
 
 #include "card.h"
 
+char const* Kind_NAMES[KIND_MAX] = {
+    "NONE",
+    "ARCHER",
+    "SOLDIER",
+    "SPY",
+    "HEIR",
+    "ASSASSINATION",
+    "ROYAL_DECREE",
+    "LORD",
+    "SHAPESHIFTER",
+    "AMBUSH",
+    "CONSPIRACY",
+};
+
 CardObject* Card_New(int kind, int family, int tokens) {
     CardObject* new_card = PyObject_New(CardObject, &Card_Type);
     if (!new_card) {
@@ -11,8 +25,6 @@ CardObject* Card_New(int kind, int family, int tokens) {
     new_card->tokens = tokens;
     return new_card;
 }
-
-// TODO repr
 
 // TODO methods to get revealed/corrupted card?
 
@@ -46,6 +58,22 @@ static PyGetSetDef Card_getset[] = {
     {NULL},
 };
 
+static PyObject* Card_repr(CardObject* self) {
+    if (self->tokens < 0) {
+        return PyUnicode_FromFormat(
+            "Card(%s, family=%d, revealed)",
+            Kind_NAMES[self->kind],
+            self->family
+        );
+    }
+    return PyUnicode_FromFormat(
+        "Card(%s, family=%d, tokens=%d)",
+        Kind_NAMES[self->kind],
+        self->family,
+        self->tokens
+    );
+}
+
 PyTypeObject Card_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = PACKAGE_NAME ".Card",
@@ -56,4 +84,5 @@ PyTypeObject Card_Type = {
     .tp_dealloc = (destructor)Card_dealloc,
     .tp_members = Card_members,
     .tp_getset = Card_getset,
+    .tp_repr = (reprfunc)Card_repr,
 };

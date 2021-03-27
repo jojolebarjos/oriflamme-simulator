@@ -19,6 +19,8 @@ typedef enum {
     KIND_MAX,
 } Kind;
 
+extern char const* Kind_NAMES[KIND_MAX];
+
 typedef struct {
     PyObject_HEAD
     Kind kind;
