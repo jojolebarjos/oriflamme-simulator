@@ -16,6 +16,8 @@ typedef enum {
     PHASE_MAX,
 } Phase;
 
+extern char const* Phase_NAMES[PHASE_MAX];
+
 typedef struct {
     PyObject_HEAD
     int phase;

@@ -2,6 +2,13 @@
 #include "state.h"
 #include "action.h"
 
+char const* Phase_NAMES[PHASE_MAX] = {
+    "NONE",
+    "PLACE",
+    "REVEAL",
+    "ACT",
+};
+
 StateObject* State_New(int phase, PyObject* board, PyObject* decks, PyObject* scores, int index) {
     StateObject* new_state = PyObject_New(StateObject, &State_Type);
     if (!new_state) {
@@ -181,9 +188,74 @@ static PyObject* State_CreateActionsReveal(StateObject* self) {
 }
 
 static PyObject* State_CreateActionsAct(StateObject* self) {
-    // TODO create acts
-    PyErr_SetString(PyExc_NotImplementedError, "act phase not implemented");
-    return NULL;
+    CardObject* card = State_CURRENT_CARD(self);
+    switch (card->kind) {
+
+    // Archer kills first or last
+    case KIND_ARCHER:
+        // TODO archer
+        PyErr_SetString(PyExc_NotImplementedError, "archer action not implemented");
+        return NULL;
+
+    // Heir yields 2 tokens, if alone
+    case KIND_HEIR:
+        // TODO heir
+        PyErr_SetString(PyExc_NotImplementedError, "heir action not implemented");
+        return NULL;
+
+    // Lord yield n+1 tokens, n being the number of adjacent cards of the same family
+    case KIND_LORD:
+        // TODO lord
+        PyErr_SetString(PyExc_NotImplementedError, "lord action not implemented");
+        return NULL;
+
+    // Shapeshifter copy the role of a neighboring (revealed) card
+    case KIND_SHAPESHIFTER:
+        // TODO shapeshifter
+        PyErr_SetString(PyExc_NotImplementedError, "shapeshifter action not implemented");
+        return NULL;
+
+    // Soldier kills previous or next
+    case KIND_SOLDIER:
+        // TODO soldier
+        PyErr_SetString(PyExc_NotImplementedError, "soldier action not implemented");
+        return NULL;
+
+    // Spy steals from neighboring family
+    case KIND_SPY:
+        // TODO spy
+        PyErr_SetString(PyExc_NotImplementedError, "spy action not implemented");
+        return NULL;
+
+    // Ambush does nothing, if revealed voluntarily
+    case KIND_AMBUSH:
+        // TODO ambush
+        PyErr_SetString(PyExc_NotImplementedError, "ambush action not implemented");
+        return NULL;
+
+    // Assassination kills one card
+    case KIND_ASSASSINATION:
+        // TODO assassination
+        PyErr_SetString(PyExc_NotImplementedError, "assassination action not implemented");
+        return NULL;
+
+    // Conspiracy does nothing
+    case KIND_CONSPIRACY:
+        // TODO conspiracy
+        PyErr_SetString(PyExc_NotImplementedError, "conspiracy action not implemented");
+        return NULL;
+
+    // Royal decree swap two cards
+    case KIND_ROYAL_DECREE:
+        // TODO royal decree
+        PyErr_SetString(PyExc_NotImplementedError, "royal decree action not implemented");
+        return NULL;
+
+    // Unexpected card kind means no action
+    default:
+        PyErr_SetString(PyExc_NotImplementedError, "card action not implemented");
+        return NULL;
+    }
 }
 
 static PyObject* State_CreateActions(StateObject* self) {
@@ -243,27 +315,28 @@ static PyGetSetDef State_getset[] = {
 
 static PyObject* State_repr(StateObject* self) {
     switch (self->phase) {
+    case PHASE_NONE:
+        return PyUnicode_FromFormat(
+            "State(%s)",
+            Phase_NAMES[self->phase]
+        );
     case PHASE_PLACE:
         return PyUnicode_FromFormat(
-            "State(PLACE, family=%d)",
+            "State(%s, family=%d)",
+            Phase_NAMES[self->phase],
             self->index
         );
     case PHASE_REVEAL:
-        return PyUnicode_FromFormat(
-            "State(REVEAL, %R@%d)",
-            State_CURRENT_CARD(self),
-            self->index
-        );
     case PHASE_ACT:
         return PyUnicode_FromFormat(
-            "State(ACT, %R@%d)",
+            "State(%s, %R@%d)",
+            Phase_NAMES[self->phase],
             State_CURRENT_CARD(self),
             self->index
         );
     default:
-        return PyUnicode_FromFormat(
-            "State(UNKNOWN)"
-        );
+        PyErr_SetString(PyExc_NotImplementedError, "phase not implemented");
+        return NULL;
     }
 }
 

@@ -1,6 +1,18 @@
 
 #include "action.h"
 
+char const* Effect_NAMES[EFFECT_MAX] = {
+    "NONE",
+    "PLACE",
+    "REVEAL",
+    "INCREASE",
+    "EARN",
+    "STEAL",
+    "KILL",
+    "SWAP",
+    "MIMIC",
+};
+
 ActionObject* Action_New(int effect, int first, int second, StateObject* current_state) {
     ActionObject* action = PyObject_New(ActionObject, &Action_Type);
     if (!action) {
@@ -233,15 +245,56 @@ static StateObject* Action_CreateStateIncrease(ActionObject* self) {
     );
 }
 
+static StateObject* Action_CreateStateEarn(ActionObject* self) {
+    // TODO earn
+    PyErr_SetString(PyExc_NotImplementedError, "earn action not implemented");
+    return NULL;
+}
+
+static StateObject* Action_CreateStateSteal(ActionObject* self) {
+    // TODO steal
+    PyErr_SetString(PyExc_NotImplementedError, "steal action not implemented");
+    return NULL;
+}
+
+static StateObject* Action_CreateStateKill(ActionObject* self) {
+    // TODO kill
+    PyErr_SetString(PyExc_NotImplementedError, "kill action not implemented");
+    return NULL;
+}
+
+static StateObject* Action_CreateStateSwap(ActionObject* self) {
+    // TODO swap
+    PyErr_SetString(PyExc_NotImplementedError, "swap action not implemented");
+    return NULL;
+}
+
+static StateObject* Action_CreateStateMimic(ActionObject* self) {
+    // TODO mimic
+    PyErr_SetString(PyExc_NotImplementedError, "mimic action not implemented");
+    return NULL;
+}
+
 static StateObject* Action_CreateState(ActionObject* self) {
     switch (self->effect) {
+    case EFFECT_NONE:
+        return Action_CreateState_PostAction(self->current_state, NULL, NULL, NULL);
     case EFFECT_PLACE:
         return Action_CreateStatePlace(self);
     case EFFECT_REVEAL:
         return Action_CreateStateReveal(self);
     case EFFECT_INCREASE:
         return Action_CreateStateIncrease(self);
-    // TODO
+    case EFFECT_EARN:
+        return Action_CreateStateEarn(self);
+    case EFFECT_STEAL:
+        return Action_CreateStateSteal(self);
+    case EFFECT_KILL:
+        return Action_CreateStateKill(self);
+    case EFFECT_SWAP:
+        return Action_CreateStateSwap(self);
+    case EFFECT_MIMIC:
+        return Action_CreateStateMimic(self);
     default:
         PyErr_SetString(PyExc_NotImplementedError, "action not implemented");
         return NULL;
@@ -277,30 +330,66 @@ static PyObject* Action_repr(ActionObject* self) {
     switch (self->effect) {
     case EFFECT_NONE:
         return PyUnicode_FromFormat(
-            "Action(NONE)"
+            "Action(%s)",
+            Effect_NAMES[self->effect]
         );
     case EFFECT_PLACE:
         return PyUnicode_FromFormat(
-            "Action(PLACE, %s, index=%d)",
+            "Action(%s, %s, index=%d)",
+            Effect_NAMES[self->effect],
             Kind_NAMES[self->first],
             self->second
         );
     case EFFECT_REVEAL:
-        return PyUnicode_FromFormat(
-            "Action(REVEAL, %R@%d)",
-            State_CURRENT_CARD(self->current_state),
-            self->current_state->index
-        );
     case EFFECT_INCREASE:
         return PyUnicode_FromFormat(
-            "Action(INCREASE, %R@%d)",
+            "Action(%s, %R@%d)",
+            Effect_NAMES[self->effect],
             State_CURRENT_CARD(self->current_state),
             self->current_state->index
         );
-    default:
+    case EFFECT_EARN:
         return PyUnicode_FromFormat(
-            "Action(UNKNOWN)"
+            "Action(%s, family=%d, tokens=%d)",
+            Effect_NAMES[self->effect],
+            State_CURRENT_CARD(self->current_state)->family,
+            self->first
         );
+    case EFFECT_STEAL:
+        return PyUnicode_FromFormat(
+            "Action(%s, family=%d->%d, tokens=%d)",
+            Effect_NAMES[self->effect],
+            self->first,
+            State_CURRENT_CARD(self->current_state)->family,
+            self->second
+        );
+    case EFFECT_KILL:
+        return PyUnicode_FromFormat(
+            "Action(%s, %R@%d, %R@%d)",
+            Effect_NAMES[self->effect],
+            PyTuple_GET_ITEM(self->current_state->board, self->first),
+            self->first
+        );
+    case EFFECT_SWAP:
+        return PyUnicode_FromFormat(
+            "Action(%s, %R@%d, %R@%d)",
+            Effect_NAMES[self->effect],
+            PyTuple_GET_ITEM(self->current_state->board, self->first),
+            self->first,
+            PyTuple_GET_ITEM(self->current_state->board, self->second),
+            self->second
+        );
+    case EFFECT_MIMIC:
+        return PyUnicode_FromFormat(
+            "Action(%s, %R@%d, %s)",
+            Effect_NAMES[self->effect],
+            State_CURRENT_CARD(self->current_state),
+            self->current_state->index,
+            Kind_NAMES[self->first]
+        );
+    default:
+        PyErr_SetString(PyExc_NotImplementedError, "effect not implemented");
+        return NULL;
     }
 }
 

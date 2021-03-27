@@ -10,17 +10,15 @@ typedef enum {
     EFFECT_PLACE,
     EFFECT_REVEAL,
     EFFECT_INCREASE,
-    //EFFECT_ACT,
-    /*
-        KILL(index, do_suicide)
-        SWAP(first, second, do_suicide)
-        STEAL(family, do_suicide)
-        EARN(tokens, do_suicide)
-        MORPH(kind)
-    */
-    // ...
+    EFFECT_EARN,
+    EFFECT_STEAL,
+    EFFECT_KILL,
+    EFFECT_SWAP,
+    EFFECT_MIMIC,
     EFFECT_MAX,
-} Act;
+} Effect;
+
+extern char const* Effect_NAMES[EFFECT_MAX];
 
 typedef struct {
     PyObject_HEAD

@@ -2,27 +2,35 @@
 (
     KIND_NONE,
     KIND_ARCHER,
-    KIND_SOLDIER,
-    KIND_SPY,
     KIND_HEIR,
-    KIND_ASSASSINATION,
-    KIND_ROYAL_DECREE,
     KIND_LORD,
     KIND_SHAPESHIFTER,
+    KIND_SOLDIER,
+    KIND_SPY,
     KIND_AMBUSH,
+    KIND_ASSASSINATION,
     KIND_CONSPIRACY,
-) = range(11)
+    KIND_ROYAL_DECREE,
+    KIND_MAX,
+) = range(12)
 
 (
     PHASE_NONE,
     PHASE_PLACE,
     PHASE_REVEAL,
     PHASE_ACT,
-) = range(4)
+    PHASE_MAX,
+) = range(5)
 
 (
     EFFECT_NONE,
     EFFECT_PLACE,
     EFFECT_REVEAL,
+    EFFECT_INCREASE,
+    EFFECT_EARN,
+    EFFECT_STEAL,
     EFFECT_KILL,
-) = range(4)
+    EFFECT_SWAP,
+    EFFECT_MIMIC,
+    EFFECT_MAX,
+) = range(10)
