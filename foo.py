@@ -10,3 +10,9 @@ for _ in range(len(state.decks)):
     state = action.next_state
 
 a = state.actions[0]
+
+
+state = initial_state(starting_deck=(KIND_HEIR,))
+
+action = state.actions[0]
+state = action.next_state

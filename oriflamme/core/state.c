@@ -187,6 +187,40 @@ static PyObject* State_CreateActionsReveal(StateObject* self) {
     return actions;
 }
 
+static PyObject* State_CreateActionsHeir(StateObject* self) {
+
+    // Get properties
+    PyObject* board = self->board;
+    Py_ssize_t board_size = PyTuple_GET_SIZE(board);
+
+    // Check if there is any other revealed heir
+    ActionObject* action = NULL;
+    for (Py_ssize_t i = 0; i < board_size; ++i) {
+        if (i != self->index) {
+            CardObject* card = (CardObject*)PyTuple_GET_ITEM(board, i);
+            if (card->kind == KIND_HEIR && card->tokens < 0) {
+
+                // If yes, then the only possibly action is "nothing"
+                action = Action_New(EFFECT_NONE, -1, -1, self);
+                if (!action) {
+                    return NULL;
+                }
+                break;
+            }
+        }
+    }
+
+    // If no, then we can earn some points
+    if (!action) {
+        action = Action_New(EFFECT_EARN, 2, -1, self);
+    }
+
+    // Pack as tuple
+    PyObject* actions = PyTuple_Pack(1, action);
+    Py_DECREF(action);
+    return actions;
+}
+
 static PyObject* State_CreateActionsAct(StateObject* self) {
     CardObject* card = State_CURRENT_CARD(self);
     switch (card->kind) {
@@ -199,9 +233,7 @@ static PyObject* State_CreateActionsAct(StateObject* self) {
 
     // Heir yields 2 tokens, if alone
     case KIND_HEIR:
-        // TODO heir
-        PyErr_SetString(PyExc_NotImplementedError, "heir action not implemented");
-        return NULL;
+        return State_CreateActionsHeir(self);
 
     // Lord yield n+1 tokens, n being the number of adjacent cards of the same family
     case KIND_LORD:

@@ -4,15 +4,15 @@
 char const* Kind_NAMES[KIND_MAX] = {
     "NONE",
     "ARCHER",
-    "SOLDIER",
-    "SPY",
     "HEIR",
-    "ASSASSINATION",
-    "ROYAL_DECREE",
     "LORD",
     "SHAPESHIFTER",
+    "SOLDIER",
+    "SPY",
     "AMBUSH",
+    "ASSASSINATION",
     "CONSPIRACY",
+    "ROYAL_DECREE",
 };
 
 CardObject* Card_New(int kind, int family, int tokens) {

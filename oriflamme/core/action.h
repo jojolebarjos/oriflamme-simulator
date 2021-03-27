@@ -13,8 +13,7 @@ typedef enum {
     EFFECT_EARN,
     EFFECT_STEAL,
     EFFECT_KILL,
-    EFFECT_SWAP,
-    EFFECT_MIMIC,
+    EFFECT_MOVE,
     EFFECT_MAX,
 } Effect;
 

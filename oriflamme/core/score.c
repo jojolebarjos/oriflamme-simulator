@@ -30,6 +30,12 @@ PyObject* Score_Add(PyObject* scores, Py_ssize_t family, int value) {
         return NULL;
     }
 
+    // Re-use, if possible
+    if (value == 0) {
+        Py_INCREF(scores);
+        return scores;
+    }
+
     // Create new tuple
     PyObject* new_scores = PyTuple_New(size);
     if (!new_scores) {
@@ -53,5 +59,58 @@ PyObject* Score_Add(PyObject* scores, Py_ssize_t family, int value) {
         }
     }
     PyTuple_SET_ITEM(new_scores, family, new_score);
+    return new_scores;
+}
+
+PyObject* Score_Transfer(PyObject* scores, Py_ssize_t src, Py_ssize_t dst, int value) {
+
+    // Check indices
+    Py_ssize_t size = PyTuple_GET_SIZE(scores);
+    if (src < 0 || src >= size) {
+        PyErr_Format(PyExc_ValueError, "source family index out of bounds (0 <= %d <= %d)", src, size);
+        return NULL;
+    }
+    if (dst < 0 || dst >= size) {
+        PyErr_Format(PyExc_ValueError, "destination family index out of bounds (0 <= %d <= %d)", dst, size);
+        return NULL;
+    }
+
+    // Re-use, if possible
+    if (value == 0 || src == dst) {
+        Py_INCREF(scores);
+        return scores;
+    }
+
+    // Create new tuple
+    PyObject* new_scores = PyTuple_New(size);
+    if (!new_scores) {
+        return NULL;
+    }
+
+    // Create new score integers
+    long old_src_score = PyLong_AsLong(PyTuple_GET_ITEM(scores, src));
+    long old_dst_score = PyLong_AsLong(PyTuple_GET_ITEM(scores, dst));
+    PyObject* new_src_score = PyLong_FromLong(old_src_score - value);
+    if (!new_src_score) {
+        Py_DECREF(new_scores);
+        return NULL;
+    }
+    PyObject* new_dst_score = PyLong_FromLong(old_dst_score + value);
+    if (!new_dst_score) {
+        Py_DECREF(new_scores);
+        Py_DECREF(new_src_score);
+        return NULL;
+    }
+
+    // Fill new tuple
+    for (Py_ssize_t i = 0; i < size; ++i) {
+        if (i != src && i != dst) {
+            PyObject* s = PyTuple_GET_ITEM(scores, i);
+            Py_INCREF(s);
+            PyTuple_SET_ITEM(new_scores, i, s);
+        }
+    }
+    PyTuple_SET_ITEM(new_scores, src, new_src_score);
+    PyTuple_SET_ITEM(new_scores, dst, new_dst_score);
     return new_scores;
 }

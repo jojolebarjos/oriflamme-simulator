@@ -9,8 +9,7 @@ char const* Effect_NAMES[EFFECT_MAX] = {
     "EARN",
     "STEAL",
     "KILL",
-    "SWAP",
-    "MIMIC",
+    "MOVE",
 };
 
 ActionObject* Action_New(int effect, int first, int second, StateObject* current_state) {
@@ -159,7 +158,7 @@ static StateObject* Action_CreateStateReveal(ActionObject* self) {
     PyObject* current_scores = current_state->scores;
 
     // Create new card
-    CardObject* new_card = Card_New(current_card->kind, current_card->family, 0);
+    CardObject* new_card = Card_New(current_card->kind, current_card->family, -1);
     if (!new_card) {
         return NULL;
     }
@@ -186,16 +185,10 @@ static StateObject* Action_CreateStateReveal(ActionObject* self) {
     }
 
     // Create new scores
-    PyObject* new_scores;
-    if (increment == 0) {
-        new_scores = current_scores;
-        Py_INCREF(current_scores);
-    } else {
-        new_scores = Score_Add(current_scores, current_card->family, increment);
-        if (!new_scores) {
-            Py_DECREF(new_board);
-            return NULL;
-        }
+    PyObject* new_scores = Score_Add(current_scores, current_card->family, increment);
+    if (!new_scores) {
+        Py_DECREF(new_board);
+        return NULL;
     }
 
     // Create new state
@@ -245,16 +238,62 @@ static StateObject* Action_CreateStateIncrease(ActionObject* self) {
     );
 }
 
+static StateObject* Action_CreateState_PostAct(
+    StateObject* current_state,
+    PyObject* new_board,
+    PyObject* new_decks,
+    PyObject* new_scores
+) {
+
+    // TODO kill current card, if it is not a character
+
+    // Proceed as usual
+    return Action_CreateState_PostAction(
+        current_state,
+        new_board,
+        new_decks,
+        new_scores
+    );
+}
+
+static StateObject* Action_CreateStateNone(ActionObject* self) {
+    return Action_CreateState_PostAct(self->current_state, NULL, NULL, NULL);
+}
+
 static StateObject* Action_CreateStateEarn(ActionObject* self) {
-    // TODO earn
-    PyErr_SetString(PyExc_NotImplementedError, "earn action not implemented");
-    return NULL;
+
+    // Get parameters
+    StateObject* current_state = self->current_state;
+    CardObject* current_card = State_CURRENT_CARD(current_state);
+    int increment = self->first;
+
+    // Create new scores
+    PyObject* new_scores = Score_Add(current_state->scores, current_card->family, increment);
+    if (!new_scores) {
+        return NULL;
+    }
+
+    // Create new state
+    return Action_CreateState_PostAct(current_state, NULL, NULL, new_scores);
 }
 
 static StateObject* Action_CreateStateSteal(ActionObject* self) {
-    // TODO steal
-    PyErr_SetString(PyExc_NotImplementedError, "steal action not implemented");
-    return NULL;
+
+    // Get parameters
+    StateObject* current_state = self->current_state;
+    CardObject* current_card = State_CURRENT_CARD(current_state);
+    Py_ssize_t src_family = self->first;
+    Py_ssize_t dst_family = current_card->family;
+    int increment = self->second;
+
+    // Create new scores
+    PyObject* new_scores = Score_Transfer(current_state->scores, src_family, dst_family, increment);
+    if (!new_scores) {
+        return NULL;
+    }
+
+    // Create new state
+    return Action_CreateState_PostAct(current_state, NULL, NULL, new_scores);
 }
 
 static StateObject* Action_CreateStateKill(ActionObject* self) {
@@ -263,22 +302,16 @@ static StateObject* Action_CreateStateKill(ActionObject* self) {
     return NULL;
 }
 
-static StateObject* Action_CreateStateSwap(ActionObject* self) {
-    // TODO swap
-    PyErr_SetString(PyExc_NotImplementedError, "swap action not implemented");
-    return NULL;
-}
-
-static StateObject* Action_CreateStateMimic(ActionObject* self) {
-    // TODO mimic
-    PyErr_SetString(PyExc_NotImplementedError, "mimic action not implemented");
+static StateObject* Action_CreateStateMove(ActionObject* self) {
+    // TODO move
+    PyErr_SetString(PyExc_NotImplementedError, "move action not implemented");
     return NULL;
 }
 
 static StateObject* Action_CreateState(ActionObject* self) {
     switch (self->effect) {
     case EFFECT_NONE:
-        return Action_CreateState_PostAction(self->current_state, NULL, NULL, NULL);
+        return Action_CreateStateNone(self);
     case EFFECT_PLACE:
         return Action_CreateStatePlace(self);
     case EFFECT_REVEAL:
@@ -291,10 +324,8 @@ static StateObject* Action_CreateState(ActionObject* self) {
         return Action_CreateStateSteal(self);
     case EFFECT_KILL:
         return Action_CreateStateKill(self);
-    case EFFECT_SWAP:
-        return Action_CreateStateSwap(self);
-    case EFFECT_MIMIC:
-        return Action_CreateStateMimic(self);
+    case EFFECT_MOVE:
+        return Action_CreateStateMove(self);
     default:
         PyErr_SetString(PyExc_NotImplementedError, "action not implemented");
         return NULL;
@@ -370,22 +401,13 @@ static PyObject* Action_repr(ActionObject* self) {
             PyTuple_GET_ITEM(self->current_state->board, self->first),
             self->first
         );
-    case EFFECT_SWAP:
+    case EFFECT_MOVE:
         return PyUnicode_FromFormat(
-            "Action(%s, %R@%d, %R@%d)",
+            "Action(%s, %R@%d->%d)",
             Effect_NAMES[self->effect],
             PyTuple_GET_ITEM(self->current_state->board, self->first),
             self->first,
-            PyTuple_GET_ITEM(self->current_state->board, self->second),
             self->second
-        );
-    case EFFECT_MIMIC:
-        return PyUnicode_FromFormat(
-            "Action(%s, %R@%d, %s)",
-            Effect_NAMES[self->effect],
-            State_CURRENT_CARD(self->current_state),
-            self->current_state->index,
-            Kind_NAMES[self->first]
         );
     default:
         PyErr_SetString(PyExc_NotImplementedError, "effect not implemented");

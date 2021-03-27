@@ -14,4 +14,9 @@ int Score_CheckMany(PyObject* scores);
  */
 PyObject* Score_Add(PyObject* scores, Py_ssize_t family, int value);
 
+/**
+ * Copy score collection, with specified score transfer.
+ */
+PyObject* Score_Transfer(PyObject* scores, Py_ssize_t src, Py_ssize_t dst, int value);
+
 #endif
