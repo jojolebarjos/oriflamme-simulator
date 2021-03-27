@@ -2,51 +2,97 @@
 #include "state.h"
 #include "action.h"
 
+StateObject* State_New(int phase, PyObject* board, PyObject* decks, PyObject* scores, int index) {
+    StateObject* new_state = PyObject_New(StateObject, &State_Type);
+    if (!new_state) {
+        Py_DECREF(board);
+        Py_DECREF(decks);
+        Py_DECREF(scores);
+        return NULL;
+    }
+    new_state->phase = phase;
+    new_state->board = board;
+    new_state->decks = decks;
+    new_state->scores = scores;
+    new_state->index = index;
+    new_state->actions = NULL;
+    return new_state;
+}
+
+StateObject* State_Copy(StateObject* state) {
+    StateObject* new_state = PyObject_New(StateObject, &State_Type);
+    if (!new_state) {
+        return NULL;
+    }
+    new_state->phase = state->phase;
+    new_state->board = state->board;
+    new_state->decks = state->decks;
+    new_state->scores = state->scores;
+    new_state->index = state->index;
+    new_state->actions = NULL;
+    Py_INCREF(new_state->board);
+    Py_INCREF(new_state->decks);
+    Py_INCREF(new_state->scores);
+    return new_state;
+}
+
 static int State_init(StateObject* self, PyObject* args, PyObject* kwargs) {
     static char* kwlist[] = {
         "phase",
         "board",
         "decks",
-        "current_index",
-        "current_family",
+        "scores",
+        "index",
         NULL
     };
     self->board = NULL;
     self->decks = NULL;
+    self->scores = NULL;
     if (!PyArg_ParseTupleAndKeywords(
         args,
         kwargs,
-        "iOOii:__init__",
+        "iOOOi:__init__",
         kwlist,
         &self->phase,
         &self->board,
         &self->decks,
-        &self->current_index,
-        &self->current_family
+        &self->scores,
+        &self->index
     )) {
         return -1;
     }
-    if (!Board_Check(self->board) || !Deck_CheckMany(self->decks)) {
+    if (!Board_Check(self->board) || !Deck_CheckMany(self->decks) || !Score_CheckMany(self->scores)) {
+        return -1;
+    }
+    if (PyTuple_GET_SIZE(self->decks) != PyTuple_GET_SIZE(self->scores)) {
+        PyErr_Format(
+            PyExc_ValueError,
+            "decks and scores count mismatch (%d != %d)",
+            PyTuple_GET_SIZE(self->decks),
+            PyTuple_GET_SIZE(self->scores)
+        );
         return -1;
     }
     if (self->phase < 0 || self->phase >= PHASE_MAX) {
         PyErr_SetString(PyExc_ValueError, "invalid phase");
         return -1;
     }
-    if (self->phase == PHASE_PLACE && self->current_index != -1) {
-        PyErr_SetString(PyExc_ValueError, "index must be -1 for PHASE_PLACE");
-        return -1;
-    }
-    if (self->phase != PHASE_PLACE && (self->current_index < 0 || self->current_index >= PyTuple_GET_SIZE(self->board))) {
-        PyErr_SetString(PyExc_ValueError, "invalid index");
-        return -1;
-    }
-    if (self->current_family < 0 || self->current_family >= PyTuple_GET_SIZE(self->decks)) {
-        PyErr_SetString(PyExc_ValueError, "invalid family");
-        return -1;
+    if (self->phase == PHASE_PLACE) {
+        Py_ssize_t num_families = PyTuple_GET_SIZE(self->decks);
+        if (self->index < 0 || self->index >= num_families) {
+            PyErr_Format(PyExc_ValueError, "family index out of bounds (0 <= %d <= %d)", self->index, num_families);
+            return -1;
+        }
+    } else {
+        Py_ssize_t board_size = PyTuple_GET_SIZE(self->board);
+        if (self->index < 0 || self->index >= board_size) {
+            PyErr_Format(PyExc_ValueError, "card index out of bounds (0 <= %d <= %d)", self->index, board_size);
+            return -1;
+        }
     }
     Py_INCREF(self->board);
     Py_INCREF(self->decks);
+    Py_INCREF(self->scores);
     self->actions = NULL;
     return 0;
 }
@@ -54,14 +100,16 @@ static int State_init(StateObject* self, PyObject* args, PyObject* kwargs) {
 static void State_dealloc(StateObject* self) {
     Py_XDECREF(self->board);
     Py_XDECREF(self->decks);
+    Py_XDECREF(self->scores);
     Py_XDECREF(self->actions);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 static PyObject* State_CreatePlaceActions(StateObject* self) {
+    // TODO check for duplicated kinds (i.e. merge actions), typically fixing tuple with _PyTuple_Resize
 
     // For convenience
-    int family = self->current_family;
+    int family = self->index;
     PyObject* board = self->board;
     Py_ssize_t board_size = PyTuple_GET_SIZE(board);
     PyObject* deck = PyTuple_GET_ITEM(self->decks, family);
@@ -79,10 +127,10 @@ static PyObject* State_CreatePlaceActions(StateObject* self) {
 
     // Build actions
     for (Py_ssize_t i = 0; i < card_count; ++i) {
-        // TODO proper action
+        int kind = PyLong_AsLong(PyTuple_GET_ITEM(deck, i));
 
         // Place front
-        ActionObject* action = Action_New(EFFECT_PLACE, self);
+        ActionObject* action = Action_New(EFFECT_PLACE, kind, 0, self);
         if (!action) {
             Py_DECREF(actions);
             return NULL;
@@ -91,12 +139,12 @@ static PyObject* State_CreatePlaceActions(StateObject* self) {
 
         // Place back
         if (board_size > 0) {
-            ActionObject* action = Action_New(EFFECT_PLACE, self);
+            ActionObject* action = Action_New(EFFECT_PLACE, kind, (int)card_count, self);
             if (!action) {
                 Py_DECREF(actions);
                 return NULL;
             }
-            PyTuple_SET_ITEM(actions, card_count + i, (PyObject*)action);
+            PyTuple_SET_ITEM(actions, board_size + i, (PyObject*)action);
         }
     }
     return actions;
@@ -134,13 +182,17 @@ static PyMemberDef State_members[] = {
     {"phase", T_INT, offsetof(StateObject, phase), READONLY},
     {"board", T_OBJECT, offsetof(StateObject, board), READONLY},
     {"decks", T_OBJECT, offsetof(StateObject, decks), READONLY},
-    {"current_index", T_INT, offsetof(StateObject, current_index), READONLY},
-    {"current_family", T_INT, offsetof(StateObject, current_family), READONLY},
+    {"scores", T_OBJECT, offsetof(StateObject, scores), READONLY},
+    {"index", T_INT, offsetof(StateObject, index), READONLY},
     {NULL},
 };
 
 static PyGetSetDef State_getset[] = {
     {"actions", (getter)State_get_actions, NULL, NULL, NULL},
+    // TODO current_family
+    // TODO current_card
+    // TODO is_finished
+    // TODO winning_family?
     {NULL},
 };
 

@@ -16,7 +16,8 @@
 (
     PHASE_PLACE,
     PHASE_REVEAL,
-) = range(2)
+    PHASE_ACT,
+) = range(3)
 
 (
     EFFECT_NONE,

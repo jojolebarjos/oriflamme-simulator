@@ -9,6 +9,7 @@ typedef enum {
     EFFECT_NONE,
     EFFECT_PLACE,
     EFFECT_REVEAL,
+    EFFECT_INCREASE,
     EFFECT_KILL,
     // ...
     EFFECT_MAX,
@@ -17,11 +18,13 @@ typedef enum {
 typedef struct {
     PyObject_HEAD
     int effect;
+    int first;
+    int second;
     StateObject* current_state;
     StateObject* next_state;
 } ActionObject;
 
-ActionObject* Action_New(int effect, StateObject* current_state);
+ActionObject* Action_New(int effect, int first, int second, StateObject* current_state);
 
 extern PyTypeObject Action_Type;
 

@@ -26,6 +26,8 @@ typedef struct {
     int tokens; // -1 means revealed
 } CardObject;
 
+CardObject* Card_New(int kind, int family, int tokens);
+
 extern PyTypeObject Card_Type;
 
 #endif

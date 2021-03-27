@@ -1,6 +1,17 @@
 
 #include "card.h"
 
+CardObject* Card_New(int kind, int family, int tokens) {
+    CardObject* new_card = PyObject_New(CardObject, &Card_Type);
+    if (!new_card) {
+        return NULL;
+    }
+    new_card->kind = kind;
+    new_card->family = family;
+    new_card->tokens = tokens;
+    return new_card;
+}
+
 // TODO repr
 
 // TODO methods to get revealed/corrupted card?
