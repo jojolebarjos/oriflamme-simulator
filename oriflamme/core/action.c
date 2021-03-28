@@ -177,7 +177,7 @@ static StateObject* Action_CreateStateReveal(ActionObject* self) {
     int increment = current_card->tokens;
     switch (current_card->kind) {
     case KIND_AMBUSH:
-        increment = 0; // TODO +1 when act
+        increment = 1;
         break;
     case KIND_CONSPIRACY:
         increment *= 2;
@@ -396,7 +396,7 @@ static PyObject* Action_repr(ActionObject* self) {
         );
     case EFFECT_KILL:
         return PyUnicode_FromFormat(
-            "Action(%s, %R@%d, %R@%d)",
+            "Action(%s, %R@%d)",
             Effect_NAMES[self->effect],
             PyTuple_GET_ITEM(self->current_state->board, self->first),
             self->first

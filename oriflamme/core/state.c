@@ -112,10 +112,51 @@ static void State_dealloc(StateObject* self) {
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+static PyObject* State_PackActions(StateObject* self, Py_ssize_t count, ActionObject** actions) {
+
+    // Count actual actions
+    Py_ssize_t actual = 0;
+    for (Py_ssize_t i = 0; i < count; ++i) {
+        if (actions[i]) {
+            ++actual;
+        }
+    }
+
+    // If there is no action, set to "none"
+    ActionObject* no_action = NULL;
+    if (actual == 0) {
+        no_action = Action_New(EFFECT_NONE, -1, -1, self);
+        if (!no_action) {
+            return NULL;
+        }
+        actual = count = 1;
+        actions = &no_action;
+    }
+
+    // Create tuple
+    PyObject* result = PyTuple_New(actual);
+    if (!result) {
+        for (Py_ssize_t i = 0; i < count; ++i) {
+            Py_XDECREF(actions[i]);
+        }
+        return NULL;
+    }
+
+    // Fill tuple
+    Py_ssize_t j = 0;
+    for (Py_ssize_t i = 0; i < count; ++i) {
+        if (actions[i]) {
+            PyTuple_SET_ITEM(result, j, (PyObject*)actions[i]);
+            ++j;
+        }
+    }
+    return result;
+}
+
 static PyObject* State_CreateActionsPlace(StateObject* self) {
     // TODO check for duplicated kinds (i.e. merge actions), typically fixing tuple with _PyTuple_Resize
 
-    // For convenience
+    // Get parameters
     int family = self->index;
     PyObject* board = self->board;
     Py_ssize_t board_size = PyTuple_GET_SIZE(board);
@@ -123,7 +164,6 @@ static PyObject* State_CreateActionsPlace(StateObject* self) {
     Py_ssize_t card_count = PyTuple_GET_SIZE(deck);
 
     // Compute how many options are available
-    // TODO change that when stacking will be allowed
     Py_ssize_t action_count = board_size == 0 ? card_count : card_count * 2;
 
     // Allocate output tuple
@@ -158,33 +198,62 @@ static PyObject* State_CreateActionsPlace(StateObject* self) {
 }
 
 static PyObject* State_CreateActionsReveal(StateObject* self) {
+    ActionObject* actions[2];
 
     // Create "reveal" action
-    ActionObject* reveal_action = Action_New(
+    actions[0] = Action_New(
         EFFECT_REVEAL,
         -1, -1,
         self
     );
-    if (!reveal_action) {
+    if (!actions[0]) {
         return NULL;
     }
 
     // Create "increase" action
-    ActionObject* increase_action = Action_New(
+    actions[1] = Action_New(
         EFFECT_INCREASE,
         -1, -1,
         self
     );
-    if (!increase_action) {
-        Py_DECREF(reveal_action);
+    if (!actions[1]) {
+        Py_DECREF(actions[0]);
         return NULL;
     }
 
     // Pack actions
-    PyObject* actions = PyTuple_Pack(2, reveal_action, increase_action);
-    Py_DECREF(reveal_action);
-    Py_DECREF(increase_action);
-    return actions;
+    return State_PackActions(self, 2, actions);
+}
+
+static PyObject* State_CreateActionsArcher(StateObject* self) {
+    ActionObject* actions[2];
+
+    // Get properties
+    PyObject* board = self->board;
+    Py_ssize_t board_size = PyTuple_GET_SIZE(board);
+
+    // First card of the queue
+    actions[0] = Action_New(EFFECT_KILL, 0, -1, self);
+    if (!actions[0]) {
+        return NULL;
+    }
+
+    // If there is only one card (i.e. the archer itself), it is the only action
+    if (board_size < 2) {
+        actions[1] = NULL;
+    }
+
+    // Otherwise, last card of the queue
+    else {
+        actions[1] = Action_New(EFFECT_KILL, (int)(board_size - 1), -1, self);
+        if (!actions[1]) {
+            Py_DECREF(actions[1]);
+            return NULL;
+        }
+    }
+
+    // Pack as tuple
+    return State_PackActions(self, 2, actions);
 }
 
 static PyObject* State_CreateActionsHeir(StateObject* self) {
@@ -200,7 +269,7 @@ static PyObject* State_CreateActionsHeir(StateObject* self) {
             CardObject* card = (CardObject*)PyTuple_GET_ITEM(board, i);
             if (card->kind == KIND_HEIR && card->tokens < 0) {
 
-                // If yes, then the only possibly action is "nothing"
+                // If yes, then the heir has no effect
                 action = Action_New(EFFECT_NONE, -1, -1, self);
                 if (!action) {
                     return NULL;
@@ -216,9 +285,131 @@ static PyObject* State_CreateActionsHeir(StateObject* self) {
     }
 
     // Pack as tuple
-    PyObject* actions = PyTuple_Pack(1, action);
-    Py_DECREF(action);
+    return State_PackActions(self, 1, &action);
+}
+
+static PyObject* State_CreateActionsLord(StateObject* self) {
+
+    // Get properties
+    PyObject* board = self->board;
+    Py_ssize_t board_size = PyTuple_GET_SIZE(board);
+    Py_ssize_t index = self->index;
+    CardObject* card = (CardObject*)PyTuple_GET_ITEM(board, index);
+
+    // At least one token
+    int increment = 1;
+
+    // Check left
+    if (index > 0) {
+        CardObject* left_card = (CardObject*)PyTuple_GET_ITEM(board, index - 1);
+        if (left_card->family == card->family) {
+            increment += 1;
+        }
+    }
+
+    // Check right
+    if (index + 1 < board_size) {
+        CardObject* right_card = (CardObject*)PyTuple_GET_ITEM(board, index + 1);
+        if (right_card->family == card->family) {
+            increment += 1;
+        }
+    }
+
+    // Create action
+    ActionObject* action = Action_New(EFFECT_EARN, increment, -1, self);
+    if (!action) {
+        return NULL;
+    }
+
+    // Pack as tuple
+    return State_PackActions(self, 1, &action);
+}
+
+static PyObject* State_CreateActionsShapeshifter(StateObject* self) {
+    // TODO shapeshifter
+    PyErr_SetString(PyExc_NotImplementedError, "shapeshifter action not implemented");
+    return NULL;
+}
+
+static PyObject* State_CreateActionsSoldier(StateObject* self) {
+    ActionObject* actions[2];
+
+    // Get properties
+    PyObject* board = self->board;
+    Py_ssize_t board_size = PyTuple_GET_SIZE(board);
+    Py_ssize_t index = self->index;
+
+    // Left card
+    actions[0] = NULL;
+    if (index > 0) {
+        actions[0] = Action_New(EFFECT_KILL, (int)(index - 1), -1, self);
+        if (!actions[0]) {
+            return NULL;
+        }
+    }
+
+    // Right card
+    actions[1] = NULL;
+    if (index + 1 < board_size) {
+        actions[1] = Action_New(EFFECT_KILL, (int)(index + 1), -1, self);
+        if (!actions[1]) {
+            Py_XDECREF(actions[0]);
+            return NULL;
+        }
+    }
+
+    // Pack as tuple
+    return State_PackActions(self, 2, actions);
+}
+
+static PyObject* State_CreateActionsSpy(StateObject* self) {
+    // TODO spy
+    PyErr_SetString(PyExc_NotImplementedError, "spy action not implemented");
+    return NULL;
+}
+
+static PyObject* State_CreateActionsAmbush(StateObject* self) {
+
+    // Do nothing (i.e. +1 was already applied during reveal)
+    return State_PackActions(self, 0, NULL);
+}
+
+static PyObject* State_CreateActionsAssassination(StateObject* self) {
+
+    // Get properties
+    PyObject* board = self->board;
+    Py_ssize_t board_size = PyTuple_GET_SIZE(board);
+    Py_ssize_t index = self->index;
+
+    // If there is no other card, then we cannot do anything
+    if (board_size < 2) {
+        return State_PackActions(self, 0, NULL);
+    }
+
+    // Otherwise, each card can be killed
+    PyObject* actions = PyTuple_New(board_size - 1);
+    for (Py_ssize_t i = 0; i < board_size - 1; ++i) {
+        Py_ssize_t j = i >= index ? i + 1 : i;
+        ActionObject* action = Action_New(EFFECT_KILL, (int)j, -1, self);
+        if (!action) {
+            Py_DECREF(actions);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(actions, i, (PyObject*)action);
+    }
     return actions;
+}
+
+static PyObject* State_CreateActionsConspiracy(StateObject* self) {
+
+    // Do nothing (i.e. double was already applied during reveal)
+    return State_PackActions(self, 0, NULL);
+}
+
+static PyObject* State_CreateActionsRoyalDecree(StateObject* self) {
+    // TODO royal decree
+    PyErr_SetString(PyExc_NotImplementedError, "royal decree action not implemented");
+    return NULL;
 }
 
 static PyObject* State_CreateActionsAct(StateObject* self) {
@@ -227,9 +418,7 @@ static PyObject* State_CreateActionsAct(StateObject* self) {
 
     // Archer kills first or last
     case KIND_ARCHER:
-        // TODO archer
-        PyErr_SetString(PyExc_NotImplementedError, "archer action not implemented");
-        return NULL;
+        return State_CreateActionsArcher(self);
 
     // Heir yields 2 tokens, if alone
     case KIND_HEIR:
@@ -237,51 +426,35 @@ static PyObject* State_CreateActionsAct(StateObject* self) {
 
     // Lord yield n+1 tokens, n being the number of adjacent cards of the same family
     case KIND_LORD:
-        // TODO lord
-        PyErr_SetString(PyExc_NotImplementedError, "lord action not implemented");
-        return NULL;
+        return State_CreateActionsLord(self);
 
     // Shapeshifter copy the role of a neighboring (revealed) card
     case KIND_SHAPESHIFTER:
-        // TODO shapeshifter
-        PyErr_SetString(PyExc_NotImplementedError, "shapeshifter action not implemented");
-        return NULL;
+        return State_CreateActionsShapeshifter(self);
 
     // Soldier kills previous or next
     case KIND_SOLDIER:
-        // TODO soldier
-        PyErr_SetString(PyExc_NotImplementedError, "soldier action not implemented");
-        return NULL;
+        return State_CreateActionsSoldier(self);
 
     // Spy steals from neighboring family
     case KIND_SPY:
-        // TODO spy
-        PyErr_SetString(PyExc_NotImplementedError, "spy action not implemented");
-        return NULL;
+        return State_CreateActionsSpy(self);
 
     // Ambush does nothing, if revealed voluntarily
     case KIND_AMBUSH:
-        // TODO ambush
-        PyErr_SetString(PyExc_NotImplementedError, "ambush action not implemented");
-        return NULL;
+        return State_CreateActionsAmbush(self);
 
     // Assassination kills one card
     case KIND_ASSASSINATION:
-        // TODO assassination
-        PyErr_SetString(PyExc_NotImplementedError, "assassination action not implemented");
-        return NULL;
+        return State_CreateActionsAssassination(self);
 
     // Conspiracy does nothing
     case KIND_CONSPIRACY:
-        // TODO conspiracy
-        PyErr_SetString(PyExc_NotImplementedError, "conspiracy action not implemented");
-        return NULL;
+        return State_CreateActionsConspiracy(self);
 
     // Royal decree swap two cards
     case KIND_ROYAL_DECREE:
-        // TODO royal decree
-        PyErr_SetString(PyExc_NotImplementedError, "royal decree action not implemented");
-        return NULL;
+        return State_CreateActionsRoyalDecree(self);
 
     // Unexpected card kind means no action
     default:
