@@ -132,6 +132,8 @@ static int State_init(StateObject* self, PyObject* args, PyObject* kwargs) {
             }
         }
 
+        // TODO check that PHASE_REVEAL/PHASE_ACT is compatible with card state
+
         // Placement phase requires non-empty decks
         Py_ssize_t remaining = PyTuple_GET_SIZE(PyTuple_GET_ITEM(self->decks, num_families - 1));
         if (self->phase == PHASE_PLACE && remaining < 1) {
@@ -318,14 +320,16 @@ static PyObject* State_CreateActionsHeir(StateObject* self) {
     // Get properties
     PyObject* board = self->board;
     Py_ssize_t board_size = PyTuple_GET_SIZE(board);
+    CardObject* card = (CardObject*)PyTuple_GET_ITEM(board, self->index);
 
     // Check if there is any other revealed heir
     ActionObject* action = NULL;
     for (Py_ssize_t i = 0; i < board_size; ++i) {
         if (i != self->index) {
-            CardObject* card = (CardObject*)PyTuple_GET_ITEM(board, i);
-            // TODO should not check KIND_HEIR, but actually the kind of the current card
-            if (card->kind == KIND_HEIR && card->tokens < 0) {
+            CardObject* c = (CardObject*)PyTuple_GET_ITEM(board, i);
+
+            // Note: checking against card kind, as it could be a shapeshifter
+            if (c->kind == card->kind && c->tokens < 0) {
 
                 // If yes, then the heir has no effect
                 action = Action_New(EFFECT_NONE, -1, -1, self);
@@ -383,12 +387,6 @@ static PyObject* State_CreateActionsLord(StateObject* self) {
     return State_PackActions(self, 1, &action);
 }
 
-static PyObject* State_CreateActionsShapeshifter(StateObject* self) {
-    // TODO shapeshifter
-    PyErr_SetString(PyExc_NotImplementedError, "shapeshifter action not implemented");
-    return NULL;
-}
-
 static PyObject* State_CreateActionsSoldier(StateObject* self) {
     ActionObject* actions[2];
 
@@ -421,9 +419,105 @@ static PyObject* State_CreateActionsSoldier(StateObject* self) {
 }
 
 static PyObject* State_CreateActionsSpy(StateObject* self) {
-    // TODO spy
-    PyErr_SetString(PyExc_NotImplementedError, "spy action not implemented");
-    return NULL;
+    ActionObject* actions[2];
+
+    // Get properties
+    PyObject* board = self->board;
+    Py_ssize_t board_size = PyTuple_GET_SIZE(board);
+    Py_ssize_t index = self->index;
+    int family = ((CardObject*)PyTuple_GET_ITEM(board, index))->family;
+
+    // Left card
+    int left_family = -1;
+    actions[0] = NULL;
+    if (index > 0) {
+        left_family = ((CardObject*)PyTuple_GET_ITEM(board, index - 1))->family;
+        if (left_family != family) {
+            actions[0] = Action_New(EFFECT_STEAL, left_family, 1, self);
+            if (!actions[0]) {
+                return NULL;
+            }
+        }
+    }
+
+    // Right card
+    int right_family = -1;
+    actions[1] = NULL;
+    if (index + 1 < board_size) {
+        right_family = ((CardObject*)PyTuple_GET_ITEM(board, index + 1))->family;
+        if (right_family != family && right_family != left_family) {
+            actions[1] = Action_New(EFFECT_STEAL, right_family, 1, self);
+            if (!actions[1]) {
+                Py_XDECREF(actions[0]);
+                return NULL;
+            }
+        }
+    }
+
+    // Pack as tuple
+    return State_PackActions(self, 2, actions);
+}
+
+static PyObject* State_CreateActionsShapeshifterFrom(StateObject* self, int index, int* ignored) {
+
+    // Check if candidate is usable
+    if (index >= 0 && index < PyTuple_GET_SIZE(self->board)) {
+        CardObject* card = (CardObject*)PyTuple_GET_ITEM(self->board, index);
+        if (card->tokens < 0 && card->kind != *ignored) {
+            *ignored = card->kind;
+            switch (card->kind) {
+            case KIND_ARCHER:
+                return State_CreateActionsArcher(self);
+            case KIND_HEIR:
+                return State_CreateActionsHeir(self);
+            case KIND_LORD:
+                return State_CreateActionsLord(self);
+            case KIND_SOLDIER:
+                return State_CreateActionsSoldier(self);
+            case KIND_SPY:
+                return State_CreateActionsSpy(self);
+            }
+        }
+    }
+
+    // Other, no action can be done
+    *ignored = KIND_NONE;
+    return PyTuple_New(0);
+}
+
+static PyObject* State_CreateActionsShapeshifter(StateObject* self) {
+
+    // Check both sides
+    int ignored = KIND_NONE;
+    PyObject* left_actions = State_CreateActionsShapeshifterFrom(self, self->index - 1, &ignored);
+    if (!left_actions) {
+        return NULL;
+    }
+    PyObject* right_actions = State_CreateActionsShapeshifterFrom(self, self->index + 1, &ignored);
+    if (!right_actions) {
+        Py_DECREF(left_actions);
+        return NULL;
+    }
+
+    // Merge tuples
+    Py_ssize_t left_size = PyTuple_GET_SIZE(left_actions);
+    Py_ssize_t right_size = PyTuple_GET_SIZE(right_actions);
+    ActionObject* actions[16];
+    for (Py_ssize_t i = 0; i < left_size; ++i) {
+        ActionObject* action = (ActionObject*)PyTuple_GET_ITEM(left_actions, i);
+        actions[i] = action;
+        Py_INCREF(action);
+    }
+    for (Py_ssize_t i = 0; i < right_size; ++i) {
+        ActionObject* action = (ActionObject*)PyTuple_GET_ITEM(right_actions, i);
+        actions[i + left_size] = action;
+        Py_INCREF(action);
+    }
+
+    // Pack actions
+    Py_DECREF(left_actions);
+    Py_DECREF(right_actions);
+    return State_PackActions(self, left_size + right_size, actions);
 }
 
 static PyObject* State_CreateActionsAmbush(StateObject* self) {

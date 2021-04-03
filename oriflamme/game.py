@@ -6,7 +6,19 @@ from .constant import *
 
 
 def create_deck():
-    choices = list(range(1, 11))
+    choices = [
+        KIND_NONE,
+        KIND_ARCHER,
+        KIND_HEIR,
+        KIND_LORD,
+        KIND_SHAPESHIFTER,
+        KIND_SOLDIER,
+        KIND_SPY,
+        KIND_AMBUSH,
+        KIND_ASSASSINATION,
+        KIND_CONSPIRACY,
+        #KIND_ROYAL_DECREE,
+    ]
     random.shuffle(choices)
     deck = choices[:7]
     deck.sort()
