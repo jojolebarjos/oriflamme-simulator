@@ -35,6 +35,8 @@ static int Card_init(CardObject* self, PyObject* args, PyObject* kwargs) {
         return -1;
     }
     // TODO check kind
+    // TODO how to check family?
+    // TODO check tokens
     return 0;
 }
 

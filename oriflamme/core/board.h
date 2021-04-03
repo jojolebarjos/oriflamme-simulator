@@ -22,6 +22,11 @@ PyObject* Board_SetCard(PyObject* board, Py_ssize_t index, PyObject* card);
 PyObject* Board_RemoveCard(PyObject* board, Py_ssize_t index);
 
 /**
+ * Copy board, with two cards removed.
+ */
+PyObject* Board_RemoveCard2(PyObject* board, Py_ssize_t index1, Py_ssize_t index2);
+
+/**
  * Copy board, with specified card inserted.
  * Reference on `card` is stolen, even on error.
  */

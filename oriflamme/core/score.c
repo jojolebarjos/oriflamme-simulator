@@ -62,21 +62,32 @@ PyObject* Score_Add(PyObject* scores, Py_ssize_t family, int value) {
     return new_scores;
 }
 
-PyObject* Score_Transfer(PyObject* scores, Py_ssize_t src, Py_ssize_t dst, int value) {
+PyObject* Score_Add2(PyObject* scores, Py_ssize_t family1, int value1, Py_ssize_t family2, int value2) {
+
+    // Corner cases
+    if (family1 == family2) {
+        return Score_Add(scores, family1, value1 + value2);
+    }
+    if (value1 == 0) {
+        return Score_Add(scores, family2, value2);
+    }
+    if (value2 == 0) {
+        return Score_Add(scores, family1, value1);
+    }
 
     // Check indices
     Py_ssize_t size = PyTuple_GET_SIZE(scores);
-    if (src < 0 || src >= size) {
-        PyErr_Format(PyExc_ValueError, "source family index out of bounds (0 <= %d <= %d)", src, size);
+    if (family1 < 0 || family1 >= size) {
+        PyErr_Format(PyExc_ValueError, "first family index out of bounds (0 <= %d <= %d)", family1, size);
         return NULL;
     }
-    if (dst < 0 || dst >= size) {
-        PyErr_Format(PyExc_ValueError, "destination family index out of bounds (0 <= %d <= %d)", dst, size);
+    if (family2 < 0 || family2 >= size) {
+        PyErr_Format(PyExc_ValueError, "second family index out of bounds (0 <= %d <= %d)", family2, size);
         return NULL;
     }
 
     // Re-use, if possible
-    if (value == 0 || src == dst) {
+    if (value1 == 0 && value2 == 0) {
         Py_INCREF(scores);
         return scores;
     }
@@ -88,29 +99,32 @@ PyObject* Score_Transfer(PyObject* scores, Py_ssize_t src, Py_ssize_t dst, int v
     }
 
     // Create new score integers
-    long old_src_score = PyLong_AsLong(PyTuple_GET_ITEM(scores, src));
-    long old_dst_score = PyLong_AsLong(PyTuple_GET_ITEM(scores, dst));
-    PyObject* new_src_score = PyLong_FromLong(old_src_score - value);
-    if (!new_src_score) {
+    long old_score1 = PyLong_AsLong(PyTuple_GET_ITEM(scores, family1));
+    PyObject* new_score1 = PyLong_FromLong(old_score1 + value1);
+    if (!new_score1) {
         Py_DECREF(new_scores);
         return NULL;
     }
-    PyObject* new_dst_score = PyLong_FromLong(old_dst_score + value);
-    if (!new_dst_score) {
+    long old_score2 = PyLong_AsLong(PyTuple_GET_ITEM(scores, family2));
+    PyObject* new_score2 = PyLong_FromLong(old_score2 + value2);
+    if (!new_score2) {
         Py_DECREF(new_scores);
-        Py_DECREF(new_src_score);
+        Py_DECREF(new_score1);
         return NULL;
     }
 
     // Fill new tuple
     for (Py_ssize_t i = 0; i < size; ++i) {
-        if (i != src && i != dst) {
-            PyObject* s = PyTuple_GET_ITEM(scores, i);
+        PyObject* s;
+        if (i == family1) {
+            s = new_score1;
+        } else if (i == family2) {
+            s = new_score2;
+        } else {
+            s = PyTuple_GET_ITEM(scores, i);
             Py_INCREF(s);
-            PyTuple_SET_ITEM(new_scores, i, s);
         }
+        PyTuple_SET_ITEM(new_scores, i, s);
     }
-    PyTuple_SET_ITEM(new_scores, src, new_src_score);
-    PyTuple_SET_ITEM(new_scores, dst, new_dst_score);
     return new_scores;
 }

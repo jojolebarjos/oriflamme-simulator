@@ -56,6 +56,19 @@ static StateObject* Action_CreateState_PostAction(
     // If it was the last card in the queue, start a new turn
     int new_index = current_state->index + 1;
     if (new_index >= PyTuple_GET_SIZE(new_board)) {
+
+        // If decks are exhausted, go to "nothing" state
+        if (PyTuple_GET_SIZE(PyTuple_GET_ITEM(new_decks, 0)) < 1) {
+            return State_New(
+                PHASE_NONE,
+                new_board,
+                new_decks,
+                new_scores,
+                -1
+            );
+        }
+
+        // TODO go to PHASE_NONE if there is no more card in decks
         return State_New(
             PHASE_PLACE,
             new_board,
@@ -238,26 +251,28 @@ static StateObject* Action_CreateStateIncrease(ActionObject* self) {
     );
 }
 
-static StateObject* Action_CreateState_PostAct(
-    StateObject* current_state,
-    PyObject* new_board,
-    PyObject* new_decks,
-    PyObject* new_scores
-) {
-
-    // TODO kill current card, if it is not a character
-
-    // Proceed as usual
-    return Action_CreateState_PostAction(
-        current_state,
-        new_board,
-        new_decks,
-        new_scores
-    );
-}
-
 static StateObject* Action_CreateStateNone(ActionObject* self) {
-    return Action_CreateState_PostAct(self->current_state, NULL, NULL, NULL);
+
+    // Get parameters
+    StateObject* current_state = self->current_state;
+    CardObject* current_card = State_CURRENT_CARD(current_state);
+
+    // Remove card, if it is an intrigue
+    PyObject* new_board = NULL;
+    if (Kind_IS_INTRIGUE(current_card->kind)) {
+        new_board = Board_RemoveCard(current_state->board, current_state->index);
+        if (!new_board) {
+            return NULL;
+        }
+    }
+
+    // Create new state
+    return Action_CreateState_PostAction(
+        self->current_state,
+        new_board,
+        NULL,
+        NULL
+    );
 }
 
 static StateObject* Action_CreateStateEarn(ActionObject* self) {
@@ -273,8 +288,15 @@ static StateObject* Action_CreateStateEarn(ActionObject* self) {
         return NULL;
     }
 
+    // TODO if intrigue, delete self? should not happen in base game
+
     // Create new state
-    return Action_CreateState_PostAct(current_state, NULL, NULL, new_scores);
+    return Action_CreateState_PostAction(
+        current_state,
+        NULL,
+        NULL,
+        new_scores
+    );
 }
 
 static StateObject* Action_CreateStateSteal(ActionObject* self) {
@@ -287,19 +309,79 @@ static StateObject* Action_CreateStateSteal(ActionObject* self) {
     int increment = self->second;
 
     // Create new scores
-    PyObject* new_scores = Score_Transfer(current_state->scores, src_family, dst_family, increment);
+    PyObject* new_scores = Score_Add2(
+        current_state->scores,
+        src_family,
+        -increment,
+        dst_family,
+        increment
+    );
     if (!new_scores) {
         return NULL;
     }
 
+    // TODO if intrigue, delete self? should not happen in base game
+
     // Create new state
-    return Action_CreateState_PostAct(current_state, NULL, NULL, new_scores);
+    return Action_CreateState_PostAction(
+        current_state,
+        NULL,
+        NULL,
+        new_scores
+    );
 }
 
 static StateObject* Action_CreateStateKill(ActionObject* self) {
-    // TODO kill
-    PyErr_SetString(PyExc_NotImplementedError, "kill action not implemented");
-    return NULL;
+
+    // Get parameters
+    StateObject* current_state = self->current_state;
+    PyObject* current_board = current_state->board;
+    PyObject* current_scores = current_state->scores;
+    Py_ssize_t killer_index = current_state->index;
+    CardObject* killer_card = (CardObject*)PyTuple_GET_ITEM(current_board, killer_index);
+    Py_ssize_t victim_index = self->first;
+    CardObject* victim_card = (CardObject*)PyTuple_GET_ITEM(current_board, victim_index);
+
+    // Create new board
+    PyObject* new_board;
+    if (Kind_IS_INTRIGUE(killer_card->kind) && killer_index != victim_index) {
+        new_board = Board_RemoveCard2(current_board, victim_index, killer_index);
+    } else {
+        new_board = Board_RemoveCard(current_board, victim_index);
+    }
+    if (!new_board) {
+        return NULL;
+    }
+
+    // Compute new scores
+    PyObject* new_scores;
+    if (killer_card->family == victim_card->family) {
+        int increment = 1;
+        if (victim_card->kind == KIND_AMBUSH) {
+            increment += 1;
+        }
+        new_scores = Score_Add(current_scores, killer_card->family, increment);
+    } else if (victim_card->kind == KIND_AMBUSH) {
+        new_scores = Score_Add2(
+            current_scores,
+            killer_card->family, 1,
+            victim_card->family, 4
+        );
+    } else {
+        new_scores = Score_Add(current_scores, killer_card->family, 1);
+    }
+    if (!new_scores) {
+        Py_DECREF(new_board);
+        return NULL;
+    }
+
+    // Create new state
+    return Action_CreateState_PostAction(
+        current_state,
+        new_board,
+        NULL,
+        new_scores
+    );
 }
 
 static StateObject* Action_CreateStateMove(ActionObject* self) {

@@ -21,6 +21,9 @@ typedef enum {
 
 extern char const* Kind_NAMES[KIND_MAX];
 
+#define Kind_IS_CHARACTER(kind) ((kind) >= KIND_ARCHER && (kind) <= KIND_SPY)
+#define Kind_IS_INTRIGUE(kind) ((kind) >= KIND_AMBUSH && (kind) <= KIND_ROYAL_DECREE)
+
 typedef struct {
     PyObject_HEAD
     Kind kind;

@@ -44,6 +44,8 @@ StateObject* State_Copy(StateObject* state) {
 }
 
 static int State_init(StateObject* self, PyObject* args, PyObject* kwargs) {
+
+    // Fetch arguments
     static char* kwlist[] = {
         "phase",
         "board",
@@ -68,9 +70,20 @@ static int State_init(StateObject* self, PyObject* args, PyObject* kwargs) {
     )) {
         return -1;
     }
+
+    // Check that structured arguments have a valid format
     if (!Board_Check(self->board) || !Deck_CheckMany(self->decks) || !Score_CheckMany(self->scores)) {
         return -1;
     }
+
+    // At least one family is required
+    Py_ssize_t num_families = PyTuple_GET_SIZE(self->decks);
+    if (num_families < 1) {
+        PyErr_SetString(PyExc_ValueError, "at least one family is needed");
+        return -1;
+    }
+
+    // Check that number of families if consistent
     if (PyTuple_GET_SIZE(self->decks) != PyTuple_GET_SIZE(self->scores)) {
         PyErr_Format(
             PyExc_ValueError,
@@ -80,23 +93,67 @@ static int State_init(StateObject* self, PyObject* args, PyObject* kwargs) {
         );
         return -1;
     }
+
+    // Check that phase type is valid
     if (self->phase < 0 || self->phase >= PHASE_MAX) {
         PyErr_SetString(PyExc_ValueError, "invalid phase");
         return -1;
     }
-    if (self->phase == PHASE_PLACE) {
-        Py_ssize_t num_families = PyTuple_GET_SIZE(self->decks);
-        if (self->index < 0 || self->index >= num_families) {
-            PyErr_Format(PyExc_ValueError, "family index out of bounds (0 <= %d <= %d)", self->index, num_families);
+
+    // None phase (i.e. game has ended) has no index
+    if (self->phase == PHASE_NONE) {
+
+        // Index must be -1
+        if (self->index != -1) {
+            PyErr_SetString(PyExc_ValueError, "index must be -1 at end game");
             return -1;
         }
-    } else {
-        Py_ssize_t board_size = PyTuple_GET_SIZE(self->board);
-        if (self->index < 0 || self->index >= board_size) {
-            PyErr_Format(PyExc_ValueError, "card index out of bounds (0 <= %d <= %d)", self->index, board_size);
+
+        // TODO check that decks are empty
+    }
+
+    // Otherwise, the game is on-going
+    else {
+
+        // Placement phase indexes a family
+        if (self->phase == PHASE_PLACE) {
+            if (self->index < 0 || self->index >= num_families) {
+                PyErr_Format(PyExc_ValueError, "family index out of bounds (0 <= %d < %d)", self->index, num_families);
+                return -1;
+            }
+        }
+
+        // Other phases index a location
+        else {
+            Py_ssize_t board_size = PyTuple_GET_SIZE(self->board);
+            if (self->index < 0 || self->index >= board_size) {
+                PyErr_Format(PyExc_ValueError, "card index out of bounds (0 <= %d <= %d)", self->index, board_size);
+                return -1;
+            }
+        }
+
+        // Placement phase requires non-empty decks
+        Py_ssize_t remaining = PyTuple_GET_SIZE(PyTuple_GET_ITEM(self->decks, num_families - 1));
+        if (self->phase == PHASE_PLACE && remaining < 1) {
+            PyErr_SetString(PyExc_ValueError, "placement phase requires non-empty decks (for families that did not place yet)");
             return -1;
+        }
+
+        // Check that decks sizes are consistent
+        for (Py_ssize_t i = 0; i < num_families - 1; ++i) {
+            Py_ssize_t expected = remaining;
+            if (self->phase == PHASE_PLACE && i < self->index) {
+                expected -= 1;
+            }
+            Py_ssize_t actual = PyTuple_GET_SIZE(PyTuple_GET_ITEM(self->decks, i));
+            if (expected != actual) {
+                PyErr_Format(PyExc_ValueError, "family %d has invalid deck size (%d instead of %d)", i, actual, expected);
+                return -1;
+            }
         }
     }
+
+    // Parameters are acceptable, proceed
     Py_INCREF(self->board);
     Py_INCREF(self->decks);
     Py_INCREF(self->scores);
@@ -267,6 +324,7 @@ static PyObject* State_CreateActionsHeir(StateObject* self) {
     for (Py_ssize_t i = 0; i < board_size; ++i) {
         if (i != self->index) {
             CardObject* card = (CardObject*)PyTuple_GET_ITEM(board, i);
+            // TODO should not check KIND_HEIR, but actually the kind of the current card
             if (card->kind == KIND_HEIR && card->tokens < 0) {
 
                 // If yes, then the heir has no effect
