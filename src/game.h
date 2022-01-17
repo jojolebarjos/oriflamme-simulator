@@ -5,6 +5,7 @@
 
 #include <cstdint>
 
+#include "action.h"
 #include "state.h"
 
 
@@ -12,8 +13,6 @@
 
 
 struct Game {
-    
-    
     // TODO from/to ASCII packed string, for serialization (should only record initial state and actions!)
 };
 

@@ -22,10 +22,19 @@ enum Kind : uint8_t{
 };
 
 
-constexpr unsigned num_players = 4;
-constexpr unsigned num_starting_cards = 7;
-constexpr unsigned max_stack_size = num_starting_cards;
-constexpr unsigned max_queue_size = num_players * num_starting_cards;
+constexpr char const * KIND_NAMES[] = {
+    "NONE",
+    "ARCHER",
+    "HEIR",
+    "LORD",
+    "SHAPESHIFTER",
+    "SOLDIER",
+    "SPY",
+    "AMBUSH",
+    "ASSASSINATION",
+    "CONSPIRACY",
+    "ROYAL_DECREE",
+};
 
 
 struct Card {
@@ -33,10 +42,16 @@ struct Card {
     uint8_t player;
     int8_t tokens;
 
-    bool is_revealed() const {
+    inline bool is_revealed() const {
         return tokens < 0;
     }
 };
+
+
+constexpr unsigned num_players = 4;
+constexpr unsigned num_starting_cards = 7;
+constexpr unsigned max_stack_size = num_starting_cards;
+constexpr unsigned max_queue_size = num_players * num_starting_cards;
 
 
 struct Stack {
@@ -120,12 +135,31 @@ enum Phase {
 };
 
 
+struct Action;
+
+
 struct State {
     Queue queue;
     Player players[num_players];
     uint8_t phase;
     uint8_t index;
     uint8_t turn;
+
+    unsigned enumerate(Action * actions) const;
+
+private:
+
+    unsigned enumerate_place(Action * actions) const;
+    unsigned enumerate_evaluate(Action * actions) const;
+    unsigned enumerate_evaluate_revealed(Action * actions, unsigned kind) const;
+    unsigned enumerate_evaluate_archer(Action * actions) const;
+    unsigned enumerate_evaluate_heir(Action * actions) const;
+    unsigned enumerate_evaluate_lord(Action * actions) const;
+    unsigned enumerate_evaluate_shapeshifter(Action * actions) const;
+    unsigned enumerate_evaluate_soldier(Action * actions) const;
+    unsigned enumerate_evaluate_spy(Action * actions) const;
+    unsigned enumerate_evaluate_assassination(Action * actions) const;
+    unsigned enumerate_evaluate_royal_decree(Action * actions) const;
 };
 
 

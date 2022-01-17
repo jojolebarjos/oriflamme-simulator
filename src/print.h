@@ -10,21 +10,6 @@
 #include "state.h"
 
 
-constexpr char const * KIND_NAMES[] = {
-    "NONE",
-    "ARCHER",
-    "HEIR",
-    "LORD",
-    "SHAPESHIFTER",
-    "SOLDIER",
-    "SPY",
-    "AMBUSH",
-    "ASSASSINATION",
-    "CONSPIRACY",
-    "ROYAL_DECREE",
-};
-
-
 inline void pretty_print(Action const & action) {
     switch (action.act) {
     case ACT_NONE:

@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     pretty_print(state);
     
     Action actions[64];
-    unsigned count = Action::actions_for(state, actions);
+    unsigned count = state.enumerate(actions);
     printf("actions:\n");
     for (unsigned i = 0; i < count; ++i) {
         printf("%u. ", i);
