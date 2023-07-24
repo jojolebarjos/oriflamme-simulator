@@ -1,48 +1,42 @@
-
 #ifndef ORIFLAMME_ACTION_H
 #define ORIFLAMME_ACTION_H
 
+#include "common.h"
+#include "state.h"
 
-#include <cstdint>
-
-
-struct State;
-
-
-enum Act : uint8_t {
+typedef enum {
     ACT_NONE,
-    ACT_PLACE,
+    ACT_INSERT,
+    ACT_STACK,
     ACT_REVEAL,
     ACT_ACCUMULATE,
     ACT_KILL,
-    ACT_HEIR,
-    ACT_LORD,
+    ACT_GAIN,
     ACT_STEAL,
-    // TODO royal decree
-};
+    ACT_MOVE,
+    MAX_ACT,
+} Act;
 
+extern const char * ACT_NAMES[MAX_ACT];
 
-struct Action {
-    uint8_t act;
-    uint8_t x;
-    uint8_t y;
-    uint8_t z;
+typedef struct {
+    PyObject_HEAD
+    StateObject * state;
+    StateObject * next_state;
+    unsigned act;
+    unsigned kind;
+    unsigned i;
+    unsigned j;
+} ActionObject;
 
-    void apply(State & state) const;
+ActionObject * Action_Build(
+    StateObject * state,
+    unsigned act,
+    unsigned kind,
+    unsigned i,
+    unsigned j
+);
 
-private:
-
-    void apply_place(State & state) const;
-    void apply_reveal(State & state) const;
-    void apply_accumulate(State & state) const;
-    void apply_kill(State & state) const;
-    void apply_heir(State & state) const;
-    void apply_lord(State & state) const;
-    void apply_steal(State & state) const;
-    // TODO royal decree
-
-    void post_evaluation(State & state, bool discard = false) const;
-};
-
+extern PyTypeObject Action_Type;
 
 #endif
