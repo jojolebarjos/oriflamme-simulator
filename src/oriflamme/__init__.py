@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-import random
 from typing import Sequence
 
 
@@ -56,6 +55,7 @@ class Board:
 class State:
     board: Board
     actions: Sequence[Action]
+    has_ended: bool = False
 
     @classmethod
     def begin(cls):
@@ -248,6 +248,7 @@ class EvaluateState(State):
 @dataclass
 class EndState(State):
     board: Board
+    has_ended = True
 
     @property
     def actions(self) -> Sequence[Action]:

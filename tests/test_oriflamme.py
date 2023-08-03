@@ -264,7 +264,7 @@ def test_random():
             Kind.ASSASSINATION,
         )
 
-        while not isinstance(state, EndState):
+        while not state.has_ended:
             actions = state.actions
             action = random.choice(actions)
             state = action.next_state
